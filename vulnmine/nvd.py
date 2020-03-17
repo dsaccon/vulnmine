@@ -210,7 +210,7 @@ class NvdCpe(object):
 
             (cpe_filename, cpe_filecontents) = utils.get_zip(gbls.url_cpe)
             if cpe_filename:
-                output_cpe = open(my_cpe, 'w')
+                output_cpe = open(my_cpe, 'wb')
                 output_cpe.write(cpe_filecontents)
                 output_cpe.close()
 
