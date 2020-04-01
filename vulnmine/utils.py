@@ -230,8 +230,10 @@ def init_globals():
         # https://static.nvd.nist.gov/feeds/xml/cve/2.0/nvdcve-2.0-2016.meta
         gbls.url_meta_base = parser.get('User', 'Url_meta_base')
         gbls.url_meta_end = parser.get('User', 'Url_meta_end')
-        gbls.url_xml_base = parser.get('User', 'Url_xml_base')
-        gbls.url_xml_end = parser.get('User', 'Url_xml_end')
+        #gbls.url_xml_base = parser.get('User', 'Url_xml_base')
+        gbls.url_json_base = parser.get('User', 'Url_json_base')
+        #gbls.url_xml_end = parser.get('User', 'Url_xml_end')
+        gbls.url_json_end = parser.get('User', 'Url_json_end')
         gbls.url_cpe = parser.get('User', 'Url_cpe')
         gbls.cpe_filename = parser.get('User', 'Cpe_filename')
         gbls.cve_filename = parser.get('User', 'Cve_filename')
