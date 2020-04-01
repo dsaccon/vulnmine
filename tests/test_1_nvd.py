@@ -38,7 +38,7 @@ class TestNvdCpe:
                 ) as myfile:
                 mybuf = myfile.read()
         except Exception as e:
-            print (e)
+            print(e)
             mybuf = None
 
         # Set up mock http response to return test file
@@ -140,7 +140,7 @@ class TestNvdCve:
                                                     )
                             )
             except Exception as e:
-                print (e)
+                print(e)
                 mybuf = None
 
             # Set up mock http response to return test file
@@ -157,7 +157,7 @@ class TestNvdCve:
             """Set the filenames and urls for a given yr"""
 
             if my_index < 0 or my_index > 1:
-                print "set_fnames_urls: index must be either 0 or 1"
+                print("set_fnames_urls: index must be either 0 or 1")
                 assert False
                 return (None, None, None)
 
