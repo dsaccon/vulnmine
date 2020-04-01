@@ -33,6 +33,7 @@ import datetime
 import time
 import os
 
+import json
 import requests
 import xmltodict as xd
 import logging
@@ -717,17 +718,17 @@ class NvdCve(object):
 
             # Read the new XML feed file
 
-            url_xml = (
-                        gbls.url_xml_base
+            url_json = (
+                        gbls.url_json_base
                         + str(yr_processed)
-                        + gbls.url_xml_end
+                        + gbls.url_json_end
                         )
 
-            (xml_filename, xml_filecontents) = utils.get_zip(url_xml)
+            (json_filename, json_filecontents) = utils.get_zip(url_json)
 
             # write this new / updated xml feed file to disk as well
 
-            if xml_filename:
+            if json_filename:
 
                 # hardcode the filenames to avoid problems if NIST changes
                 # names
@@ -735,19 +736,19 @@ class NvdCve(object):
                 my_cve_filename = (
                             gbls.nvdcve
                             + str(yr_processed)
-                            + '.xml'
+                            + '.json'
                             )
 
                 self.logger.info(
-                    '\nSaving XML file I/P {0} as {1}\n\n'.format(
-                                                xml_filename,
+                    '\nSaving JSON file I/P {0} as {1}\n\n'.format(
+                                                json_filename,
                                                 my_cve_filename
                                                 )
                     )
 
-                output_xml = open(my_cve_filename, 'wb')
-                output_xml.write(xml_filecontents)
-                output_xml.close()
+                output_json = open(my_cve_filename, 'wb')
+                output_json.write(json_filecontents)
+                output_json.close()
 
         return None
 
@@ -830,10 +831,16 @@ class NvdCve(object):
                         )
 
                 with open(my_file1) as fd:
-                    my_dict = xd.parse(fd.read())
+                    #my_dict = xd.parse(fd.read())
+                    my_dict = json.loads(fd.read())
+
+                # Move nested 'baseMetricV2' dict up one level in my_dict
+                for d in my_dict['CVE_Items']:
+                    d['baseMetricV2'] = d['impact'].get('baseMetricV2')
 
                 df_tmp = pd.DataFrame.from_dict(
-                            my_dict['nvd']['entry']
+                            # my_dict['nvd']['entry']
+                            my_dict['CVE_Items']
                             )
                 if fst_time:
                     df_nvd = df_tmp
@@ -859,8 +866,12 @@ class NvdCve(object):
 
         # eliminate null entries. Then reset index to sequential #'s
         df_nvd1 = df_nvd[
-                df_nvd['vuln:cvss'].notnull()
+                df_nvd['baseMetricV2'].notnull()
+                #df_nvd['vuln:cvss'].notnull()
                 ].reset_index(drop=True)
+
+        # Create id column. *TBD whether need to keep this
+        df_nvd1['vuln:cve-id'] = df_nvd1.apply(lambda row: row['cve']['CVE_data_meta']['ID'], axis=1)
 
         self.logger.debug(
             '\n\nNVD CVE data after eliminating '
@@ -870,9 +881,12 @@ class NvdCve(object):
             )
 
         # pull out cvss_dict hierarchical entry in each row
-        s_cvss_dict = df_nvd1['vuln:cvss'].apply(
-                        lambda mydict: mydict['cvss:base_metrics']
-                        )
+        #s_cvss_dict = df_nvd1['vuln:cvss'].apply(
+        #                lambda mydict: mydict['cvss:base_metrics']
+        #                )
+        s_cvss_dict = df_nvd1['baseMetricV2'].apply(
+            lambda mydict: mydict['cvssV2']
+        )
 
         # convert this series to a dataframe
         df_cvss = pd.DataFrame(s_cvss_dict.tolist())
@@ -890,7 +904,7 @@ class NvdCve(object):
 
         # drop unneeded columns
         df_nvd2.drop(
-                ['@id', 'vuln:cwe'],
+                ['baseMetricV2', 'cve', 'impact', 'lastModifiedDate', 'publishedDate', 'vectorString', 'version'],
                 axis=1,
                 inplace=True
                 )
@@ -903,12 +917,29 @@ class NvdCve(object):
 
         # then pull out the embedded list of vulnerable software
         # and if the software list is empty, then handle this gracefully
-        df_sft['sftlist'] = df_nvd2[
-            'vuln:vulnerable-software-list'].fillna(value='xx').apply(
-                lambda mydict: [] if mydict == 'xx' else mydict[
-                                                            'vuln:product'
-                                                            ]
-                )
+#        df_sft['sftlist'] = df_nvd2[
+#            'vuln:vulnerable-software-list'].fillna(value='xx').apply(
+#                lambda mydict: [] if mydict == 'xx' else mydict[
+#                                                            'vuln:product'
+#                                                            ]
+#                )
+
+        # Utility function, take all entries in hierarchical configurations
+        # element and put into a Python list
+        def flatten_cvss(cvss_dict):
+            cvss_list = []
+            for n in cvss_dict['nodes']:
+                if not 'children' in n:
+                    _cvss = [c['cpe23Uri'] for c in n['cpe_match']]
+                    cvss_list += _cvss
+                else:
+                    for ch in n['children']:
+                        _cvss = [c['cpe23Uri'] for c in ch['cpe_match']]
+                        cvss_list += _cvss
+            return cvss_list
+
+        # Flatten hierarchy in 'configurations' dict
+        df_sft['sftlist'] = df_nvd2.apply(lambda row: flatten_cvss(row['configurations'].copy()), axis=1)
 
         self.logger.info(
                 '\n\n embedded software counts: \n{0}'.format(
@@ -948,16 +979,34 @@ class NvdCve(object):
 
         # remove os/hdware entries. Best to analyze MS OS vulns by using MS'
         # patch csv file
-
         pattern = re.compile(
-                        'cpe:'
-                        '/[oh]:',
+                        'cpe:2.3:[oh]:',
                         re.IGNORECASE | re.UNICODE
                         )
 
         df_sft2 = df_sft1[
                         ~df_sft1['vuln:product'].str.contains(pattern)
                         ]
+        # Remove extraneous characters from 'vuln:product
+        df_sft2['vuln:product'] = df_sft2.apply(lambda row: row['vuln:product'].strip(':*'), axis=1)
+
+        # Adapt 'vuln:product' entries further to conform with prior implementation
+        df_sft2['vuln:product'] = df_sft2.apply(lambda row: row['vuln:product'].replace('cpe:2.3:', 'cpe:/'), axis=1)
+
+        # Rename columns to match expected formatting
+        df_nvd2.rename(
+            columns = {
+                'accessComplexity': 'cvss:access-complexity',
+                'accessVector': 'cvss:access-vector',
+                'authentication': 'cvss:authentication',
+                'availabilityImpact': 'cvss:availability-impact',
+                'confidentialityImpact': 'cvss:confidentiality-impact',
+                'integrityImpact': 'cvss:integrity-impact',
+                'baseScore': 'cvss:score',
+            }, inplace=True)
+
+        # Add 'cvss:source' col with filler values
+        df_nvd2['cvss:source'] = 'http://nvd.nist.gov'
 
         # Finally add information describing the vulnerability add in cvss
         # information concerning the vuln characteristics and severity
@@ -965,16 +1014,16 @@ class NvdCve(object):
         # pull out the cvss information for each vulnerability
         df_cvss = df_nvd2[[
                 'vuln:cve-id',
-                u'cvss:access-complexity',
-                u'cvss:access-vector',
-                u'cvss:authentication',
-                u'cvss:availability-impact',
-                u'cvss:confidentiality-impact',
-                u'cvss:integrity-impact',
-                u'cvss:score',
+                'cvss:access-complexity',
+                'cvss:access-vector',
+                'cvss:authentication',
+                'cvss:availability-impact',
+                'cvss:confidentiality-impact',
+                'cvss:integrity-impact',
+                'cvss:score',
                 # 170118 Bug fix: Sometimes not present
                 #                u'vuln:security-protection',
-                u'cvss:source'
+                'cvss:source'
                 ]]
 
         # Now merge it into the new dataframe mapping software to vulns
