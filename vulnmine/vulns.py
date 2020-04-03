@@ -25,6 +25,7 @@ MatchVulns      Merge CVE Vuln data with SCCM host data, print basic stats.
 import re
 
 import pandas as pd
+from pandas.api.types import CategoricalDtype
 
 import sys
 
@@ -231,22 +232,26 @@ class MatchVulns(object):
             # Categorize the CVSS impact data
 
             # categories
-            df_sft3['cvss_acc_cmpl_cat'] = df_sft3[
-                        'cvss:access-complexity'].astype(
-                            'category',
-                            categories=['HIGH', 'MEDIUM', 'LOW'],
-                            ordered=True
-                            )
+#            df_sft3['cvss_acc_cmpl_cat'] = df_sft3[
+#                        'cvss:access-complexity'].astype(
+#                            'category',
+#                            categories=['HIGH', 'MEDIUM', 'LOW'],
+#                            ordered=True
+#                            )
+            cats = CategoricalDtype(categories=['HIGH', 'MEDIUM', 'LOW'], ordered=True)
+            df_sft3['cvss_acc_cmpl_cat'] = df_sft3['cvss:access-complexity'].astype(cats)
 
-            df_sft3['cvss_acc_vect_cat'] = df_sft3[
-                            'cvss:access-vector'].astype(
-                                'category',
-                                categories=[
-                                        'LOCAL',
-                                        'ADJACENT_NETWORK',
-                                        'NETWORK'
-                                        ],
-                                ordered=True)
+#            df_sft3['cvss_acc_vect_cat'] = df_sft3[
+#                            'cvss:access-vector'].astype(
+#                                'category',
+#                                categories=[
+#                                        'LOCAL',
+#                                        'ADJACENT_NETWORK',
+#                                        'NETWORK'
+#                                        ],
+#                                ordered=True)
+            cats = CategoricalDtype(categories=['LOCAL', 'ADJACENT_NETWORK', 'NETWORK'], ordered=True)
+            df_sft3['cvss_acc_vect_cat'] = df_sft3['cvss:access-vector'].astype(cats)
 
             # convert from string to float for max comparisons
             df_sft3['cvss_score'] = pd.to_numeric(
@@ -320,11 +325,13 @@ class MatchVulns(object):
             my_crit_categories = ['None', 'Low', 'Medium', 'High']
 
             # and then convert the calculated value to a category
-            df_sft4_agg['crit_X_cat'] = df_sft4_agg['crit_X'].astype(
-                                            'category',
-                                            categories=my_crit_categories,
-                                            ordered=True
-                                            )
+#            df_sft4_agg['crit_X_cat'] = df_sft4_agg['crit_X'].astype(
+#                                            'category',
+#                                            categories=my_crit_categories,
+#                                            ordered=True
+#                                            )
+            cats = CategoricalDtype(categories=my_crit_categories, ordered=True)
+            df_sft4_agg['crit_X_cat'] = df_sft4_agg['crit_X'].astype(cats)
 
             df_sft4_agg.drop(['crit_X'], axis=1, inplace=True)
 
