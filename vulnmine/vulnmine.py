@@ -271,6 +271,12 @@ def main():
         version=gbls.VERSION
         )
 
+    parser.add_argument(
+        '-b', '--bare_os',
+        action='store_const', const=1, default=0,
+        help="Allow system to run outside of a Docker container."
+        )
+
     args = parser.parse_args()
 
     # Set working directory
@@ -284,6 +290,9 @@ def main():
 
     else:
         gbls.wkdir = args.workdir
+
+    # Set env var to control bare_os mode
+    os.environ['BARE_OS'] = str(args.bare_os)
 
     # Initialize global variables now that the working directory
     # is known
