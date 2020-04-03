@@ -1,4 +1,5 @@
 import sys
+import os
 import pandas as pd
 import re
 from yapsy.IPlugin import IPlugin
@@ -27,6 +28,9 @@ sys.path.append("../")
 
 # Imports change if running in docker
 if 'jovyan' in open('/etc/passwd').read():
+    import sccm
+    import gbls
+elif bool(int(os.environ['BARE_OS'])):
     import sccm
     import gbls
 else:
