@@ -15,6 +15,7 @@ requests==2.23.0
 responses==0.10.12
 schedule==0.6.0
 yapsy
+openpyxl
 
 
 # matplotlib, scikit-image not really needed
