@@ -565,6 +565,7 @@ class MatchVulns(object):
                                     "top25_sft_high.json"
                                     )
                 )
+        s_tmp.reset_index().to_excel(f"{gbls.csvdir}top25_sft_high.xlsx", index=False)
 
         ######
         # Where are these software installed?
@@ -601,5 +602,7 @@ class MatchVulns(object):
                                         "site_by_criticality.json"
                                         )
                     )
+
+        dfs1a.reset_index().to_excel(f"{gbls.csvdir}site_by_criticality.xlsx", index=False)
 
         return None
